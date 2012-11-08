@@ -77,7 +77,7 @@ createconfig() {
 	    include /etc/nginx/fastcgi_params;
 	    fastcgi_pass 127.0.0.1:9000;
 	    fastcgi_index index.php;
-	    fastcgi_param SCRIPT_FILENAME /usr/share/$domain/www\$fastcgi_script_name;
+	    fastcgi_param SCRIPT_FILENAME /usr/share/nginx/$domain/www\$fastcgi_script_name;
 }
 
 	}" > /etc/nginx/sites-available/$domain
