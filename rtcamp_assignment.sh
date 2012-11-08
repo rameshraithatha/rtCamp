@@ -1,4 +1,4 @@
-#!/bin/bash
+##!/bin/bash
 
 #Written by - Ramesh Raithatha
 #Email - ramesh_raithatha@hotmail.com
@@ -25,8 +25,8 @@ else
 
 packagecheck(){
 	echo $bold"Installing missing packages, please wait!"$normal
-	apt-get update
-	for i in  nginx mysql-server php5
+	#apt-get update
+	for i in  nginx mysql-server php5 php5-fpm php5-mysql
 	do
 	dpkg --status $i > /dev/null
 	if [[ $? -ne 0 ]]
@@ -60,27 +60,25 @@ hostentry(){
 	
 createconfig() {
 	echo $bold"Creating config file for nginx"$normal
-	mkdir /var/www/$domain
 
 	echo "server
 	{
 	    server_name $domain;
 
-	    access_log /var/log/nginx/$domain.access.log;
+	    access_log /usr/share/nginx/$domain/access.log;
 
-	    error_log /var/log/nginx/$domain.error.log;
+	    error_log /usr/share/nginx/$domain/error.log;
 
-	    root /var/www/$domain;
+	    root /usr/share/nginx/$domain/www;
 
 	    index index.php index.html index.htm;
-
-	    location ~ \.php$
-	    {
-		fastcgi_pass 127.0.0.1:9000;
-		fastcgi_index index.php;
-		fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-		include fastcgi_params;
-	    }
+	
+	    location ~ \.php$ {
+	    include /etc/nginx/fastcgi_params;
+	    fastcgi_pass 127.0.0.1:9000;
+	    fastcgi_index index.php;
+	    fastcgi_param SCRIPT_FILENAME /usr/share/$domain/www\$fastcgi_script_name;
+}
 
 	}" > /etc/nginx/sites-available/$domain
 	ln -s /etc/nginx/sites-available/$domain /etc/nginx/sites-enabled/$domain
@@ -94,9 +92,9 @@ createconfig() {
 	}
 	
 downloadwp(){
-	#wget http://wordpress.org/latest.zip -P /var/www/$domain
-	wget http://wordpress.org/latest.zip -P /var/www/$domain
-	unzip /var/www/$domain/latest.zip -d /var/www/$domain
+	mkdir -p /usr/share/nginx/$domain/www
+	wget http://wordpress.org/latest.zip -P /usr/share/nginx/$domain/www
+	unzip /usr/share/nginx/$domain/www/latest.zip
 }
 
 mysqldb(){	
@@ -123,7 +121,7 @@ mysqldb(){
 
 wpconfig(){
 	echo $bold"Creating wordpress config file"$normal
-	cd /var/www/$domain/wordpress
+	cd /usr/share/nginx/$domain/www/wordpress
 
 	cp wp-config-sample.php wp-config.php
 
@@ -143,7 +141,7 @@ domain
 hostentry
 createconfig
 downloadwp
-mysqldb
+#mysqldb
 wpconfig
 if [[ $? -eq 0 ]]
 then
