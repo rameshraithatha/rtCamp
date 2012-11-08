@@ -14,41 +14,52 @@
 #9.Tell user to open example.com in browser (if all goes well)
 
 
-
-#-----Begin-----
-#Your script will check if PHP, Mysql & Nginx are installed. If not present, missing packages will be installed.
+#-----Begin------------------------------------------------------------------------------------
 
 if [[ `id -u` -ne 0 ]]  # Check if the user is root or not
 then
-	echo "You need to be root to access this script!"
+	echo $bold"You need to be root to access this script!"$normal
 else
-	for i in "mysql-server php5 nginx"
+	bold=`tput bold`   # Changes text into bold
+	normal=`tput sgr0` # Changes text into normal mode
+
+packagecheck(){
+	echo $bold"Installing missing packages, please wait!"$normal
+	apt-get update
+	for i in  nginx mysql-server php5
 	do
-		dpkg --status $i > err.log # 1> success.log
-		#echo `dpkg --status $i | grep -q not-installed` > rtcamp1.log
-		cat err.log | grep -w "not-	installed" > 1
+	dpkg --status $i > /dev/null
+	if [[ $? -ne 0 ]]
+	then
+		apt-get -f install $i
 		if [[ $? -eq 0 ]]
 		then
-	    		apt-get install $i
+			echo $bold"$i installed successfully"$normal
+		else
+			echo $bold"Some error occured!"$normal
+			exit 1
 		fi
-		#echo "" > err.log
-		#echo "" > 1
-
+	fi
 	done
 
+	if [[ $? -ne 0 ]]
+	then
+		echo $bold"Some error occured!"$normal
+		exit 1
+	fi
+	}
 
-	#-->The script will then ask user for domain name. (Suppose user enters example.com)
+domain(){
+	read -p $bold"Enter your domain name: $normal" domain;echo ""
+}
 
-	read -p "Enter your domain name: " domain;echo ""
+hostentry(){
+	echo "127.0.0.1	$domain" >> /etc/hosts
+}
 
-
-	#-->Create a /etc/hosts entry for example.com pointing to localhost IP.
-
-	echo "127.0.0.1	$domain" >> hosts
-
-
-	#-->Create nginx config file for example.com
-
+	
+createconfig() {
+	echo $bold"Creating config file for nginx"$normal
 	mkdir /var/www/$domain
 
 	echo "server
@@ -72,41 +83,71 @@ else
 	    }
 
 	}" > /etc/nginx/sites-available/$domain
-
+	ln -s /etc/nginx/sites-available/$domain /etc/nginx/sites-enabled/$domain
+	if [[ $? -eq 0 ]]
+	then
+		echo $bold"nginx config file created"$normal
+	else
+		echo $bold"Some error occured wile creating/linking nginx config file"$normal
+	fi
 	/etc/init.d/nginx reload
-
-
-	#Download WordPress latest version from http://wordpress.org/latest.zip and unzip it locally in example.com document root.
-
+	}
+	
+downloadwp(){
+	#wget http://wordpress.org/latest.zip -P /var/www/$domain
 	wget http://wordpress.org/latest.zip -P /var/www/$domain
+	unzip /var/www/$domain/latest.zip -d /var/www/$domain
+}
 
-	unzip /var/www/$domain/latest.zip
+mysqldb(){	
+	echo $bold"Creating mysql database"$normal
+	read -p $bold"Enter mysql user name: "$normal mysqluser;echo
+	read -p $bold"Enter mysql password: "$normal -s mysqlpass;echo
+
+	mysql -u $mysqluser -p$mysqlpass -e "create database ${domain}_db;" 2> db.log
+	
+	if cat db.log | grep -wE "database exists" > dberr.log
+	then
+		echo $bold"Database already exists, check dberr.log for more information"$normal
+	elif at db.log | grep -wE "ERROR 1045" > dberr.log
+	then
+		echo $bold"Access denied, check username/password, check dberr.log for more information"$normal
+		exit 1
+	else
+		echo $bold"Unknow error occured, check dberr.log for more information"$normal
+		exit 1
+	fi
+	
+}
 
 
-	#Create a new mysql database for new wordpress. (database name “example.com_db” )
-	read -p "Enter mysql user name: " mysqluser;echo ""
-	read -p "Enter mysql password: " -s mysqlpass;echo ""
-
-	mysql -u $mysqluser -p$mysqlpass -e "create database $domain_db;"
-
-
-
-	#Create wp-config.php with proper DB configuration. (You can use wp-config-sample.php as your template)
-
-
-	cd /var/www/$domain/latest.zip
+wpconfig(){
+	echo $bold"Creating wordpress config file"$normal
+	cd /var/www/$domain/wordpress
 
 	cp wp-config-sample.php wp-config.php
 
 	sed -i "s/database_name_here/"$domain"_db/g" wp-config.php
 	sed -i "s/username_here/"$mysqluser"/g" wp-config.php
 	sed -i "s/password_here/"$mysqlpass"/g" wp-config.php
+	if [[ $? -eq 0 ]]
+	then
+		echo $bold"wordpress config file created"$normal
+	else
+		echo $bold"Some error occured wile creating wordpress config file"$normal
+	fi
+}
 
-
+packagecheck
+domain
+hostentry
+createconfig
+downloadwp
+mysqldb
+wpconfig
+if [[ $? -eq 0 ]]
+then
+	echo $bold"Open $domain in a browser"$normal
 fi
 
-
-echo "Open $domain in a browser"
-
-
-
+fi
